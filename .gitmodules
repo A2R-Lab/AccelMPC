@@ -1,0 +1,12 @@
+[submodule "ADMM_FPGA"]
+	path = ADMM_FPGA
+	url = https://github.com/A2R-Lab/ADMM_FPGA.git
+	branch = main
+[submodule "crazyflie_fpga_firmware"]
+	path = crazyflie_fpga_firmware
+	url = https://github.com/A2R-Lab/crazyflie_fpga_firmware.git
+	branch = main
+[submodule "Crazyflie_FPGA_Deck"]
+	path = Crazyflie_FPGA_Deck
+	url = https://github.com/A2R-Lab/Crazyflie_FPGA_Deck.git
+	branch = main

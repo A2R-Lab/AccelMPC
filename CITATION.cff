@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: "If you use AccelMPC, please cite the paper below."
+title: "AccelMPC: High-Rate, Low-Power FPGA-Accelerated Model Predictive Control for Tiny Drones"
+type: software
+repository-code: "https://github.com/A2R-Lab/AccelMPC"
+license: MIT
+authors:
+  - family-names: Grillo
+    given-names: Andrea
+  - family-names: Plancher
+    given-names: Brian
+preferred-citation:
+  type: article
+  title: "AccelMPC: High-Rate, Low-Power FPGA-Accelerated Model Predictive Control for Tiny Drones"
+  authors:
+    - family-names: Grillo
+      given-names: Andrea
+    - family-names: Plancher
+      given-names: Brian
+  year: 2026
+  month: 9
+  journal: "arXiv preprint arXiv:2609.09380"
+  url: "https://arxiv.org/abs/2609.09380"
