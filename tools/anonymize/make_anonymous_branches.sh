@@ -43,14 +43,34 @@ done
 
 log "scrub ADMM_FPGA"
 ( cd "$STAGE/ADMM_FPGA"
-  sed -i 's#/home/agrillo#$HOME#g' experiments/slurm/*.sh vitis_projects/ADMM/solver_numerics_notes.md
-  sed -i 's/`a2r-main`/the build host/' vitis_projects/ADMM/solver_numerics_notes.md
-  sed -i -E 's#/media/andrea/[0-9a-f-]+#/home/user#g; s#/home/andrea#/home/user#g' vivado_project/vivado_project.xpr
-  # The imported synthesis checkpoint is a zip; only its QoR report JSON names the host and user.
-  dcp="$PWD/vivado_project/vivado_project.srcs/utils_1/imports/synth_1/top.dcp"
-  t="$(mktemp -d)"; unzip -q -o "$dcp" top_spi_rda.json -d "$t"
-  sed -i -E 's#"Host": "[^"]*"#"Host": "redacted"#; s#/home/andrea#/home/user#g; s#Vivado-[0-9]+-ag-think#Vivado-0-host#g' "$t/top_spi_rda.json"
-  ( cd "$t" && zip -q "$dcp" top_spi_rda.json ); rm -rf "$t"
+  # Scrub identifying paths and host references across the current tree. The
+  # component layout changes over time, so don't depend on retired fixed paths.
+  find . -type f ! -path './.git/*' \
+    ! -iname '*.png' ! -iname '*.jpg' ! -iname '*.jpeg' ! -iname '*.gif' \
+    ! -iname '*.mp4' ! -iname '*.dcp' ! -iname '*.pdf' \
+    ! -iname '*.zip' ! -iname '*.gz' ! -iname '*.tar' \
+    -print0 | xargs -0 -r sed -i -E \
+    -e 's#/home/agrillo#\$HOME#g' \
+    -e 's#/media/andrea/[0-9a-f-]+#/home/user#g' \
+    -e 's#/home/andrea#/home/user#g' \
+    -e 's/`a2r-main`/the build host/g' \
+    -e 's/\ba2r-main-fpga\b/the build host/g' \
+    -e 's/\ba2r-main-mount\b/the build host/g' \
+    -e 's/Dartmouth/University/g' \
+    -e 's#https://arxiv\.org/abs/2609\.09380#https://example.invalid/paper#g' \
+    -e 's#https://github\.com/A2R-Lab/crazyflie_fpga_firmware#https://example.invalid/companion-firmware#g' \
+    -e 's#A2R-Lab#the project#g'
+  # The imported synthesis checkpoint is a zip; scrub its report when present.
+  while IFS= read -r -d '' dcp; do
+    dcp="$(realpath "$dcp")"
+    t="$(mktemp -d)"
+    if unzip -l "$dcp" | grep -q 'top_spi_rda\.json'; then
+      unzip -q -o "$dcp" top_spi_rda.json -d "$t"
+      sed -i -E 's#"Host": "[^"]*"#"Host": "redacted"#; s#/home/andrea#/home/user#g; s#Vivado-[0-9]+-ag-think#Vivado-0-host#g' "$t/top_spi_rda.json"
+      ( cd "$t" && zip -q "$dcp" top_spi_rda.json )
+    fi
+    rm -rf "$t"
+  done < <(find . -type f -name '*.dcp' -print0)
 )
 
 log "scrub crazyflie_fpga_firmware"
@@ -67,7 +87,18 @@ log "scrub Crazyflie_FPGA_Deck"
 
 # --- 2. forbidden-term gate ------------------------------------------------
 log "forbidden-term gate"
-if hits="$(grep -r -a -i -l -E "$FORBIDDEN" "$STAGE")"; then
+if hits="$(
+  find "$STAGE" -type f \
+    ! \( \
+      -iname '*.png'  -o -iname '*.jpg'  -o -iname '*.jpeg' \
+      -o -iname '*.gif'  -o -iname '*.bmp'  -o -iname '*.webp' \
+      -o -iname '*.tif'  -o -iname '*.tiff' \
+      -o -iname '*.mp4'  -o -iname '*.mov'  -o -iname '*.avi' \
+      -o -iname '*.mkv'  -o -iname '*.webm' \
+      -o -iname '*.pdf' \
+    \) \
+    -exec grep -a -i -l -E "$FORBIDDEN" {} +
+)"; then
   echo "error: identifying terms remain in:" >&2; echo "$hits" >&2; exit 1
 fi
 pdftotext "$STAGE/Crazyflie_FPGA_Deck/Deck_FPGA.pdf" - | grep -q -i grillo && { echo "error: PDF text still contains the name" >&2; exit 1; }
@@ -104,7 +135,19 @@ cp "$HERE/README.hub.md" "$HUBSTAGE/README.md"
 cp "$HUB/LICENSE" "$HUBSTAGE/LICENSE"
 sed -i -E 's/^Copyright \(c\) [0-9]{4} .*/Copyright (c) 2026 Anonymous Authors/' "$HUBSTAGE/LICENSE"
 for c in "${COMPONENTS[@]}"; do cp -a "$STAGE/$c" "$HUBSTAGE/$c"; done
-if hits="$(grep -r -a -i -l -E "$FORBIDDEN" "$HUBSTAGE")"; then
+
+if hits="$(
+  find "$HUBSTAGE" -type f \
+    ! \( \
+      -iname '*.png'  -o -iname '*.jpg'  -o -iname '*.jpeg' \
+      -o -iname '*.gif'  -o -iname '*.bmp'  -o -iname '*.webp' \
+      -o -iname '*.tif'  -o -iname '*.tiff' \
+      -o -iname '*.mp4'  -o -iname '*.mov'  -o -iname '*.avi' \
+      -o -iname '*.mkv'  -o -iname '*.webm' \
+      -o -iname '*.pdf' \
+    \) \
+    -exec grep -a -i -l -E "$FORBIDDEN" {} +
+)"; then
   echo "error: identifying terms remain in hub tree:" >&2; echo "$hits" >&2; exit 1
 fi
 replace_branch "$HUB" "$HUBSTAGE" "Anonymized snapshot for double-blind review (components vendored)"

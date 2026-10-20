@@ -13,9 +13,8 @@ All four branches are orphans (no history) authored as "Anonymous Authors".
 | all READMEs | replaced by the `README.*.md` templates here: no authors, thesis, lab, paper link, or GitHub org URLs |
 | all `LICENSE` files | copyright holder becomes "Anonymous Authors" |
 | hub | `CITATION.cff`, `.gitmodules`, and `tools/` are omitted |
-| `ADMM_FPGA/experiments/slurm/*.sh`, `vitis_projects/ADMM/solver_numerics_notes.md` | personal home-directory paths become `$HOME`; the build host name is removed |
-| `ADMM_FPGA/vivado_project/vivado_project.xpr` | personal absolute paths become `/home/user/...` |
-| `ADMM_FPGA/.../utils_1/imports/synth_1/top.dcp` | the QoR report JSON inside the checkpoint zip named the host and user; it is rewritten in place |
+| `ADMM_FPGA` text files | personal home-directory paths become `$HOME` or `/home/user`; references to the build host are removed across the current tree layout |
+| `ADMM_FPGA/**/*.dcp` | QoR report JSON files inside checkpoint archives have host and user paths redacted when present |
 | `crazyflie_fpga_firmware/.gitmodules` | removed; the README documents the upstream Bitcraze commit to check out |
 | `Crazyflie_FPGA_Deck/Deck_FPGA.kicad_sch` | schematic title-block company field cleared |
 | `Crazyflie_FPGA_Deck/{fp,sym}-lib-table` | personal library paths become `/home/user/...` |
