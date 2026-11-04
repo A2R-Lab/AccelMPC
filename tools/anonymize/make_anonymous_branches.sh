@@ -5,29 +5,29 @@
 #   tools/anonymize/make_anonymous_branches.sh
 #
 # What it does
-#   1. Exports each component's HEAD (the commit pinned by this hub) into a
+#   1. Exports each component's checked-out HEAD into a
 #      staging tree and scrubs identifying content (see tools/anonymize/README.md).
 #   2. Replaces the `anonymous` branch of each component repo with an orphan
 #      commit of its scrubbed tree (no history, anonymous author).
 #   3. Replaces the `anonymous` branch of the hub with an orphan commit that
 #      VENDORS the three scrubbed trees as plain directories. anonymous.4open.science
 #      cannot expand submodules, so the hub branch must carry the files itself.
-#   4. Greps the result for the forbidden-term list and fails on any hit.
+#   All staged trees are audited before any branch is replaced.
 #
-# Nothing is pushed. Requires: git, zip/unzip, python3 with pymupdf (set PYTHON).
+# Nothing is pushed. Requires: git, zip/unzip, ffmpeg/ffprobe, Python with pymupdf/Pillow.
 set -euo pipefail
 
 HUB="$(cd "$(dirname "$0")/../.." && pwd)"
 HERE="$HUB/tools/anonymize"
-PYTHON="${PYTHON:-python3}"
+PYTHON="${PYTHON:-$HOME/venv/bin/python}"
 BRANCH="${BRANCH:-anonymous}"
 COMPONENTS=(ADMM_FPGA crazyflie_fpga_firmware Crazyflie_FPGA_Deck)
-FORBIDDEN='\b(andrea|grillo|plancher|brian|a2r|dartmouth|epfl|lausanne|agrillo|ag-think|arxiv|nsf|toyota|burke)\b'
+
 
 export GIT_AUTHOR_NAME="Anonymous Authors" GIT_AUTHOR_EMAIL="anonymous@example.com"
 export GIT_COMMITTER_NAME="Anonymous Authors" GIT_COMMITTER_EMAIL="anonymous@example.com"
 
-"$PYTHON" -c 'import pymupdf' 2>/dev/null || { echo "error: $PYTHON lacks pymupdf (pip install pymupdf), needed to redact the schematic PDF" >&2; exit 1; }
+"$PYTHON" -c 'import pymupdf; import PIL' 2>/dev/null || { echo "error: $PYTHON lacks pymupdf (pip install pymupdf), needed to redact the schematic PDF" >&2; exit 1; }
 
 STAGE="$(mktemp -d)"; trap 'rm -rf "$STAGE"' EXIT
 log() { printf '\n== %s\n' "$*"; }
@@ -85,24 +85,9 @@ log "scrub Crazyflie_FPGA_Deck"
   "$PYTHON" "$HERE/redact_pdf.py" Deck_FPGA.pdf "Andrea Grillo"
 )
 
-# --- 2. forbidden-term gate ------------------------------------------------
-log "forbidden-term gate"
-if hits="$(
-  find "$STAGE" -type f \
-    ! \( \
-      -iname '*.png'  -o -iname '*.jpg'  -o -iname '*.jpeg' \
-      -o -iname '*.gif'  -o -iname '*.bmp'  -o -iname '*.webp' \
-      -o -iname '*.tif'  -o -iname '*.tiff' \
-      -o -iname '*.mp4'  -o -iname '*.mov'  -o -iname '*.avi' \
-      -o -iname '*.mkv'  -o -iname '*.webm' \
-      -o -iname '*.pdf' \
-    \) \
-    -exec grep -a -i -l -E "$FORBIDDEN" {} +
-)"; then
-  echo "error: identifying terms remain in:" >&2; echo "$hits" >&2; exit 1
-fi
-pdftotext "$STAGE/Crazyflie_FPGA_Deck/Deck_FPGA.pdf" - | grep -q -i grillo && { echo "error: PDF text still contains the name" >&2; exit 1; }
-echo "clean"
+# --- 2. media scrub and complete-tree gate -------------------------------
+log "audit component trees"
+"$PYTHON" "$HERE/audit_tree.py" "$STAGE"
 
 # --- 3. orphan branches -----------------------------------------------------
 # replace_branch <repo> <content-dir> <message>
@@ -124,11 +109,6 @@ replace_branch() {
   git -C "$repo" worktree remove --force "$wt"
 }
 
-for c in "${COMPONENTS[@]}"; do
-  log "branch $c"
-  replace_branch "$HUB/$c" "$STAGE/$c" "Anonymized snapshot for double-blind review"
-done
-
 log "branch hub"
 HUBSTAGE="$STAGE/hub"; mkdir -p "$HUBSTAGE"
 cp "$HERE/README.hub.md" "$HUBSTAGE/README.md"
@@ -136,20 +116,13 @@ cp "$HUB/LICENSE" "$HUBSTAGE/LICENSE"
 sed -i -E 's/^Copyright \(c\) [0-9]{4} .*/Copyright (c) 2026 Anonymous Authors/' "$HUBSTAGE/LICENSE"
 for c in "${COMPONENTS[@]}"; do cp -a "$STAGE/$c" "$HUBSTAGE/$c"; done
 
-if hits="$(
-  find "$HUBSTAGE" -type f \
-    ! \( \
-      -iname '*.png'  -o -iname '*.jpg'  -o -iname '*.jpeg' \
-      -o -iname '*.gif'  -o -iname '*.bmp'  -o -iname '*.webp' \
-      -o -iname '*.tif'  -o -iname '*.tiff' \
-      -o -iname '*.mp4'  -o -iname '*.mov'  -o -iname '*.avi' \
-      -o -iname '*.mkv'  -o -iname '*.webm' \
-      -o -iname '*.pdf' \
-    \) \
-    -exec grep -a -i -l -E "$FORBIDDEN" {} +
-)"; then
-  echo "error: identifying terms remain in hub tree:" >&2; echo "$hits" >&2; exit 1
-fi
+"$PYTHON" "$HERE/audit_tree.py" "$HUBSTAGE"
+
+for c in "${COMPONENTS[@]}"; do
+  log "branch $c"
+  replace_branch "$HUB/$c" "$STAGE/$c" "Anonymized snapshot for double-blind review"
+done
+
 replace_branch "$HUB" "$HUBSTAGE" "Anonymized snapshot for double-blind review (components vendored)"
 
 log "done (nothing pushed). Push with:"

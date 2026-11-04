@@ -1,28 +1,50 @@
-# ADMM_FPGA
+# AccelMPC — FPGA solver
 
-This repository contains the FPGA implementation of an ADMM (Alternating Direction Method of Multipliers) solver developed for real-time linear Model Predictive Control (MPC) on the Crazyflie quadrotor platform.
+FPGA implementation of an ADMM solver for real-time model predictive control.
+The design targets an Artix-7 100T and runs on the custom Crazyflie FPGA deck
+or an Arty A7 development board.
 
-The project targets an AMD Xilinx Artix-7 100T FPGA and includes the HLS solver, the FPGA integration files, and support scripts used to build and program the design.
+**[Evaluation results](evaluation/README.md)** ·
+**[Build and program](docs/build.md)** ·
+**[Design and interfaces](docs/architecture.md)** ·
+**[Solver walkthrough](docs/solver-walkthrough.md)** ·
+**[Run benchmarks](docs/benchmarking.md)** ·
+**[Measure power](docs/power.md)**
 
-## Design Flow
+## Start here
 
-The development flow for this project is managed through the provided Makefiles:
+To regenerate the benchmark and flight figures from bundled data, no FPGA is needed:
 
-1. Python scripts generate the matrices and headers used by the solver.
-2. The ADMM solver is synthesized with Vitis HLS.
-3. The generated IP is integrated in the full FPGA design and built in Vivado.
-4. An Arduino-based SPI test can be used for standalone communication checks.
-5. The final deployment target is the Crazyflie platform, using the companion firmware in the `crazyflie_fpga_firmware` component.
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install numpy==1.26.4 matplotlib==3.10.1
+python evaluation/plot_benchmarks.py
+python evaluation/flight_metrics.py
+```
 
-## Repository Contents
+For hardware builds, follow the [toolchain setup](docs/build.md). Python generates
+the model matrices and reference trajectory; Vitis HLS compiles the C++ solver;
+Vivado integrates its RTL with SPI/UART and produces the bitstream.
 
-- `vitis_projects/ADMM/`: Vitis HLS project containing the ADMM solver implementation and testbench
-- `vivado_project/`: Vivado project with the top-level FPGA design, SPI/UART modules, constraints, and generated IP
-- `scripts/`: build, programming, simulation, and data/header generation scripts
-- `experiments/`: configuration sweeps and the Slurm batch scripts used to run them on a cluster
-- `Makefile`: top-level build flow for HLS, Vivado, bitstream generation, and programming
+## Repository map
 
-## Related Components
+| Location | Contents |
+|---|---|
+| [vitis_projects/ADMM/](vitis_projects/ADMM/) | Solver C++, numerical types, HLS configurations and testbenches |
+| [vivado_project/](vivado_project/) | FPGA top levels, SPI/UART, power instrumentation and board constraints |
+| [scripts/](scripts/) | Model generation, build support and benchmark runners; see the [workflow guide](docs/benchmarking.md) |
+| [evaluation/](evaluation/) | Recorded inputs, analysis, results and figure generation |
+| [tests/](tests/) | Host, RTL and HLS power-workflow checks |
+| [video/](video/) | [Supplementary demo](video/AccelMPC_supplementary_demo.mp4), recordings and editing assets |
 
-- FPGA deck hardware: `Crazyflie_FPGA_Deck`
-- Crazyflie firmware: `crazyflie_fpga_firmware`
+Generated builds live in `build/`; local experiment outputs live in `results/`;
+full figure exports live in `evaluation/output/`. These directories are ignored.
+
+## Companion projects
+
+- [FPGA deck PCB](../Crazyflie_FPGA_Deck)
+- [Crazyflie firmware](../crazyflie_fpga_firmware)
+
+The FPGA/firmware packet interface is described in [the design guide](docs/architecture.md).
+This repository is released under the [MIT license](LICENSE).

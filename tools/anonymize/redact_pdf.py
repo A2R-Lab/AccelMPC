@@ -9,6 +9,8 @@ for page in doc:
         page.add_redact_annot(rect, fill=(1, 1, 1))
         n += 1
     page.apply_redactions()
+doc.set_metadata({})
+doc.del_xml_metadata()
 doc.save(path + ".tmp", garbage=4, deflate=True)
 doc.close()
 import os; os.replace(path + ".tmp", path)
